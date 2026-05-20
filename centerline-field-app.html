@@ -1,0 +1,1200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Centerline">
+<title>Centerline Field App</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --hunter: #2D4A35;
+    --sage: #7A9E7E;
+    --sage-light: #B8CEB9;
+    --cream: #F5F0E8;
+    --linen: #EDE8DC;
+    --tan: #C4A882;
+    --text: #2A2A2A;
+    --text-muted: #6B6B6B;
+    --white: #FFFFFF;
+    --border: #D8D0C4;
+    --error: #C0392B;
+    --card-bg: rgba(255,255,255,0.85);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--cream);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── LOCK SCREEN ── */
+  #lockScreen {
+    position: fixed; inset: 0;
+    background: var(--hunter);
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    z-index: 1000;
+    gap: 2rem;
+  }
+
+  #lockScreen.hidden { display: none; }
+
+  .lock-logo {
+    font-family: 'Cormorant Garamond', serif;
+    color: var(--cream);
+    text-align: center;
+  }
+  .lock-logo .big { font-size: 2.8rem; font-weight: 300; letter-spacing: 0.15em; }
+  .lock-logo .sub { font-size: 0.85rem; letter-spacing: 0.3em; color: var(--sage-light); text-transform: uppercase; margin-top: 0.25rem; }
+
+  .pin-display {
+    display: flex; gap: 1rem; margin: 0.5rem 0;
+  }
+  .pin-dot {
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    border: 2px solid var(--sage-light);
+    transition: background 0.15s;
+  }
+  .pin-dot.filled { background: var(--sage-light); }
+
+  .pin-pad {
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    gap: 0.75rem; width: 240px;
+  }
+  .pin-btn {
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.15);
+    color: var(--cream);
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 1.6rem; font-weight: 300;
+    padding: 1rem; border-radius: 50%;
+    cursor: pointer; transition: background 0.15s;
+    aspect-ratio: 1;
+  }
+  .pin-btn:active { background: rgba(255,255,255,0.2); }
+  .pin-btn.del { font-size: 1rem; font-family: 'DM Sans', sans-serif; }
+
+  .pin-hint { color: var(--sage-light); font-size: 0.75rem; letter-spacing: 0.1em; }
+  .pin-error { color: #e88; font-size: 0.8rem; min-height: 1rem; }
+
+  .set-pin-note {
+    color: var(--sage-light); font-size: 0.78rem;
+    text-align: center; max-width: 200px; line-height: 1.5;
+  }
+
+  /* ── APP SHELL ── */
+  #app { display: none; flex-direction: column; min-height: 100vh; }
+  #app.visible { display: flex; }
+
+  /* ── TOP BAR ── */
+  .topbar {
+    background: var(--hunter);
+    color: var(--cream);
+    padding: 1rem 1.25rem 0.75rem;
+    display: flex; align-items: center; justify-content: space-between;
+    position: sticky; top: 0; z-index: 100;
+  }
+  .topbar-title {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 1.4rem; font-weight: 300; letter-spacing: 0.1em;
+  }
+  .topbar-actions { display: flex; gap: 0.5rem; align-items: center; }
+  .icon-btn {
+    background: rgba(255,255,255,0.1);
+    border: none; color: var(--cream);
+    width: 36px; height: 36px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; font-size: 1.1rem;
+    transition: background 0.15s;
+  }
+  .icon-btn:active { background: rgba(255,255,255,0.2); }
+
+  /* ── VIEWS ── */
+  .view { display: none; flex: 1; flex-direction: column; }
+  .view.active { display: flex; }
+
+  /* ── CLIENT LIST ── */
+  #clientList { padding: 1.25rem; gap: 0.75rem; overflow-y: auto; }
+
+  .search-bar {
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 0.75rem 1rem;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.9rem; width: 100%;
+    color: var(--text);
+    outline: none;
+    margin-bottom: 0.5rem;
+  }
+  .search-bar:focus { border-color: var(--sage); }
+
+  .client-card {
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 1rem 1.25rem;
+    cursor: pointer;
+    transition: box-shadow 0.2s, transform 0.1s;
+    display: flex; align-items: center; gap: 1rem;
+  }
+  .client-card:active { transform: scale(0.98); }
+  .client-card:hover { box-shadow: 0 4px 16px rgba(45,74,53,0.12); }
+
+  .client-avatar {
+    width: 48px; height: 48px; border-radius: 50%;
+    background: var(--sage-light);
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 1.4rem; color: var(--hunter);
+    font-weight: 600; flex-shrink: 0;
+    overflow: hidden;
+  }
+  .client-avatar img { width: 100%; height: 100%; object-fit: cover; }
+
+  .client-info { flex: 1; min-width: 0; }
+  .client-horse { font-family: 'Cormorant Garamond', serif; font-size: 1.2rem; font-weight: 600; color: var(--hunter); }
+  .client-owner { font-size: 0.8rem; color: var(--text-muted); margin-top: 0.1rem; }
+  .client-meta { font-size: 0.75rem; color: var(--sage); margin-top: 0.25rem; }
+
+  .client-bcs {
+    background: var(--hunter);
+    color: var(--cream);
+    border-radius: 8px;
+    padding: 0.3rem 0.6rem;
+    font-size: 0.75rem; font-weight: 500;
+    text-align: center; flex-shrink: 0;
+  }
+  .client-bcs span { display: block; font-family: 'Cormorant Garamond', serif; font-size: 1.1rem; font-weight: 600; }
+
+  .empty-state {
+    text-align: center; padding: 3rem 1rem;
+    color: var(--text-muted);
+  }
+  .empty-state .icon { font-size: 3rem; margin-bottom: 1rem; }
+  .empty-state p { font-size: 0.9rem; line-height: 1.6; }
+
+  /* ── FAB ── */
+  .fab {
+    position: fixed; bottom: 1.5rem; right: 1.5rem;
+    width: 56px; height: 56px; border-radius: 50%;
+    background: var(--hunter);
+    color: var(--cream); border: none;
+    font-size: 1.5rem; cursor: pointer;
+    box-shadow: 0 4px 16px rgba(45,74,53,0.35);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 50; transition: transform 0.15s;
+  }
+  .fab:active { transform: scale(0.92); }
+
+  /* ── CLIENT DETAIL ── */
+  #clientDetail { overflow-y: auto; }
+
+  .detail-header {
+    background: var(--hunter);
+    color: var(--cream);
+    padding: 1.25rem;
+  }
+  .detail-horse {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 2rem; font-weight: 300;
+  }
+  .detail-owner { font-size: 0.85rem; color: var(--sage-light); margin-top: 0.25rem; }
+  .detail-chips { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.75rem; }
+  .chip {
+    background: rgba(255,255,255,0.12);
+    border-radius: 20px; padding: 0.25rem 0.75rem;
+    font-size: 0.75rem; color: var(--sage-light);
+  }
+
+  .detail-tabs {
+    display: flex; overflow-x: auto; gap: 0;
+    background: var(--linen);
+    border-bottom: 1px solid var(--border);
+    scrollbar-width: none;
+  }
+  .detail-tabs::-webkit-scrollbar { display: none; }
+  .tab-btn {
+    padding: 0.75rem 1rem; font-size: 0.8rem;
+    border: none; background: none; cursor: pointer;
+    color: var(--text-muted); white-space: nowrap;
+    border-bottom: 2px solid transparent;
+    transition: all 0.15s; font-family: 'DM Sans', sans-serif;
+    letter-spacing: 0.05em;
+  }
+  .tab-btn.active { color: var(--hunter); border-bottom-color: var(--hunter); font-weight: 500; }
+
+  .tab-content { display: none; padding: 1.25rem; flex: 1; }
+  .tab-content.active { display: block; }
+
+  /* ── SECTION CARDS ── */
+  .section-card {
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 1.25rem;
+    margin-bottom: 1rem;
+  }
+  .section-title {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 1.1rem; font-weight: 600;
+    color: var(--hunter); margin-bottom: 0.75rem;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .add-btn {
+    background: var(--sage-light);
+    color: var(--hunter); border: none;
+    border-radius: 8px; padding: 0.25rem 0.75rem;
+    font-size: 0.75rem; cursor: pointer;
+    font-family: 'DM Sans', sans-serif;
+  }
+  .add-btn:active { opacity: 0.8; }
+
+  /* ── BCS GRAPH ── */
+  .bcs-graph { width: 100%; height: 120px; margin: 0.5rem 0; }
+  .bcs-entry {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 0.5rem 0; border-bottom: 1px solid var(--linen);
+    font-size: 0.85rem;
+  }
+  .bcs-entry:last-child { border-bottom: none; }
+  .bcs-val { font-family: 'Cormorant Garamond', serif; font-size: 1.2rem; font-weight: 600; color: var(--hunter); }
+  .bcs-date { color: var(--text-muted); font-size: 0.78rem; }
+
+  /* ── VISIT NOTES ── */
+  .visit-note {
+    padding: 0.75rem 0; border-bottom: 1px solid var(--linen);
+  }
+  .visit-note:last-child { border-bottom: none; }
+  .visit-date {
+    font-size: 0.75rem; color: var(--sage);
+    font-weight: 500; margin-bottom: 0.25rem;
+    letter-spacing: 0.05em; text-transform: uppercase;
+  }
+  .visit-text { font-size: 0.88rem; line-height: 1.6; color: var(--text); }
+
+  /* ── SUPPLEMENT / MED ROWS ── */
+  .item-row {
+    padding: 0.6rem 0; border-bottom: 1px solid var(--linen);
+    font-size: 0.85rem;
+  }
+  .item-row:last-child { border-bottom: none; }
+  .item-name { font-weight: 500; color: var(--hunter); }
+  .item-detail { color: var(--text-muted); font-size: 0.78rem; margin-top: 0.15rem; }
+
+  /* ── LAB VALUES ── */
+  .lab-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+  .lab-item { background: var(--linen); border-radius: 10px; padding: 0.75rem; }
+  .lab-label { font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.08em; }
+  .lab-value { font-family: 'Cormorant Garamond', serif; font-size: 1.3rem; font-weight: 600; color: var(--hunter); margin-top: 0.15rem; }
+  .lab-date { font-size: 0.7rem; color: var(--text-muted); }
+
+  /* ── PHOTOS ── */
+  .photo-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+  .photo-slot {
+    aspect-ratio: 1; border-radius: 12px;
+    background: var(--linen);
+    border: 2px dashed var(--border);
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    cursor: pointer; overflow: hidden;
+    position: relative;
+  }
+  .photo-slot img { width: 100%; height: 100%; object-fit: cover; }
+  .photo-slot .placeholder { font-size: 2rem; color: var(--border); }
+  .photo-slot .photo-label {
+    font-size: 0.7rem; color: var(--text-muted); margin-top: 0.25rem;
+  }
+  .photo-delete {
+    position: absolute; top: 0.25rem; right: 0.25rem;
+    background: rgba(0,0,0,0.5); color: white;
+    border: none; border-radius: 50%; width: 24px; height: 24px;
+    font-size: 0.7rem; cursor: pointer; display: none;
+    align-items: center; justify-content: center;
+  }
+  .photo-slot:hover .photo-delete { display: flex; }
+
+  /* ── MODAL ── */
+  .modal-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 200; display: none;
+    align-items: flex-end; justify-content: center;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--white);
+    border-radius: 24px 24px 0 0;
+    padding: 1.5rem;
+    width: 100%; max-width: 600px;
+    max-height: 90vh; overflow-y: auto;
+  }
+  .modal-title {
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 1.4rem; font-weight: 600;
+    color: var(--hunter); margin-bottom: 1.25rem;
+  }
+  .form-group { margin-bottom: 1rem; }
+  .form-label { font-size: 0.78rem; color: var(--text-muted); margin-bottom: 0.35rem; display: block; letter-spacing: 0.05em; text-transform: uppercase; }
+  .form-input, .form-textarea, .form-select {
+    width: 100%; padding: 0.75rem;
+    border: 1px solid var(--border); border-radius: 10px;
+    font-family: 'DM Sans', sans-serif; font-size: 0.9rem;
+    color: var(--text); background: var(--white);
+    outline: none; transition: border-color 0.15s;
+  }
+  .form-input:focus, .form-textarea:focus, .form-select:focus { border-color: var(--sage); }
+  .form-textarea { resize: vertical; min-height: 80px; }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+
+  .modal-actions { display: flex; gap: 0.75rem; margin-top: 1.25rem; }
+  .btn-primary {
+    flex: 1; background: var(--hunter); color: var(--cream);
+    border: none; border-radius: 12px; padding: 0.9rem;
+    font-family: 'DM Sans', sans-serif; font-size: 0.9rem;
+    font-weight: 500; cursor: pointer; transition: opacity 0.15s;
+  }
+  .btn-primary:active { opacity: 0.85; }
+  .btn-secondary {
+    flex: 1; background: var(--linen); color: var(--text);
+    border: 1px solid var(--border); border-radius: 12px; padding: 0.9rem;
+    font-family: 'DM Sans', sans-serif; font-size: 0.9rem;
+    cursor: pointer;
+  }
+  .btn-danger {
+    background: #fee; color: var(--error);
+    border: 1px solid #fcc; border-radius: 12px; padding: 0.9rem 1.25rem;
+    font-family: 'DM Sans', sans-serif; font-size: 0.9rem;
+    cursor: pointer;
+  }
+
+  /* ── HEALTH CONCERNS ── */
+  .concern-tag {
+    display: inline-block; background: #FFF3CD;
+    color: #856404; border-radius: 8px;
+    padding: 0.2rem 0.6rem; font-size: 0.75rem;
+    margin: 0.2rem;
+  }
+
+  .info-row {
+    display: flex; justify-content: space-between;
+    padding: 0.5rem 0; border-bottom: 1px solid var(--linen);
+    font-size: 0.88rem;
+  }
+  .info-row:last-child { border-bottom: none; }
+  .info-key { color: var(--text-muted); }
+  .info-val { color: var(--text); font-weight: 500; text-align: right; max-width: 60%; }
+
+  /* Canvas for BCS chart */
+  canvas { display: block; }
+</style>
+</head>
+<body>
+
+<!-- LOCK SCREEN -->
+<div id="lockScreen">
+  <div class="lock-logo">
+    <div class="big">Centerline</div>
+    <div class="sub">Equine Nutrition</div>
+  </div>
+  <div class="pin-hint" id="pinHint">Enter PIN</div>
+  <div class="pin-display" id="pinDisplay">
+    <div class="pin-dot" id="d0"></div>
+    <div class="pin-dot" id="d1"></div>
+    <div class="pin-dot" id="d2"></div>
+    <div class="pin-dot" id="d3"></div>
+  </div>
+  <div class="pin-error" id="pinError"></div>
+  <div class="pin-pad">
+    <button class="pin-btn" onclick="pinInput('1')">1</button>
+    <button class="pin-btn" onclick="pinInput('2')">2</button>
+    <button class="pin-btn" onclick="pinInput('3')">3</button>
+    <button class="pin-btn" onclick="pinInput('4')">4</button>
+    <button class="pin-btn" onclick="pinInput('5')">5</button>
+    <button class="pin-btn" onclick="pinInput('6')">6</button>
+    <button class="pin-btn" onclick="pinInput('7')">7</button>
+    <button class="pin-btn" onclick="pinInput('8')">8</button>
+    <button class="pin-btn" onclick="pinInput('9')">9</button>
+    <button class="pin-btn" onclick="pinInput('0')" style="grid-column:2">0</button>
+    <button class="pin-btn del" onclick="pinDelete()">⌫</button>
+  </div>
+  <div class="set-pin-note" id="pinSetNote"></div>
+</div>
+
+<!-- APP -->
+<div id="app">
+  <!-- TOP BAR -->
+  <div class="topbar" id="topbar">
+    <div class="topbar-title" id="topbarTitle">Centerline</div>
+    <div class="topbar-actions" id="topbarActions">
+      <button class="icon-btn" onclick="openDataModal()" title="Data">⚙️</button>
+      <button class="icon-btn" onclick="showLock()" title="Lock">🔒</button>
+    </div>
+  </div>
+
+  <!-- CLIENT LIST VIEW -->
+  <div class="view active" id="viewList" style="overflow-y:auto; padding:1.25rem; gap:0.75rem; display:flex; flex-direction:column;">
+    <input class="search-bar" type="search" placeholder="Search horses or owners..." id="searchInput" oninput="renderList()">
+    <div id="clientCards"></div>
+  </div>
+
+  <!-- CLIENT DETAIL VIEW -->
+  <div class="view" id="viewDetail" style="flex-direction:column;">
+    <div class="detail-header" id="detailHeader"></div>
+    <div class="detail-tabs" id="detailTabs"></div>
+    <div id="detailTabContents" style="flex:1; overflow-y:auto;"></div>
+  </div>
+
+  <!-- FAB -->
+  <button class="fab" id="fab" onclick="openNewClientModal()">＋</button>
+</div>
+
+<!-- MODALS -->
+<div class="modal-overlay" id="modalOverlay" onclick="closeModal(event)">
+  <div class="modal" id="modalContent"></div>
+</div>
+
+<script>
+// ── STATE ──
+let db = JSON.parse(localStorage.getItem('cl_db') || '{"clients":[],"pin":null,"pinSet":false}');
+let currentPin = '';
+let settingPin = false;
+let newPinFirst = '';
+let currentClientId = null;
+let currentTab = 0;
+
+function save() { localStorage.setItem('cl_db', JSON.stringify(db)); }
+
+// ── PIN ──
+function initLock() {
+  if (!db.pinSet) {
+    document.getElementById('pinHint').textContent = 'Create a 4-digit PIN';
+    document.getElementById('pinSetNote').textContent = 'You will use this PIN to access the app';
+    settingPin = true;
+  } else {
+    document.getElementById('pinHint').textContent = 'Enter PIN';
+    settingPin = false;
+  }
+}
+
+function pinInput(d) {
+  if (currentPin.length >= 4) return;
+  currentPin += d;
+  updateDots();
+  if (currentPin.length === 4) {
+    setTimeout(() => processPIN(), 150);
+  }
+}
+
+function pinDelete() {
+  currentPin = currentPin.slice(0, -1);
+  updateDots();
+  document.getElementById('pinError').textContent = '';
+}
+
+function updateDots() {
+  for (let i = 0; i < 4; i++) {
+    document.getElementById('d' + i).classList.toggle('filled', i < currentPin.length);
+  }
+}
+
+function processPIN() {
+  if (settingPin && !newPinFirst) {
+    newPinFirst = currentPin;
+    currentPin = '';
+    updateDots();
+    document.getElementById('pinHint').textContent = 'Confirm PIN';
+    document.getElementById('pinSetNote').textContent = '';
+    return;
+  }
+  if (settingPin && newPinFirst) {
+    if (currentPin === newPinFirst) {
+      db.pin = currentPin; db.pinSet = true; save();
+      unlock();
+    } else {
+      document.getElementById('pinError').textContent = 'PINs do not match. Try again.';
+      currentPin = ''; newPinFirst = ''; updateDots();
+      document.getElementById('pinHint').textContent = 'Create a 4-digit PIN';
+    }
+    return;
+  }
+  if (currentPin === db.pin) {
+    unlock();
+  } else {
+    document.getElementById('pinError').textContent = 'Incorrect PIN';
+    currentPin = ''; updateDots();
+    setTimeout(() => document.getElementById('pinError').textContent = '', 2000);
+  }
+}
+
+function unlock() {
+  document.getElementById('lockScreen').classList.add('hidden');
+  document.getElementById('app').classList.add('visible');
+  renderList();
+}
+
+function showLock() {
+  currentPin = ''; updateDots();
+  document.getElementById('pinError').textContent = '';
+  document.getElementById('pinHint').textContent = 'Enter PIN';
+  settingPin = false;
+  document.getElementById('lockScreen').classList.remove('hidden');
+  document.getElementById('app').classList.remove('visible');
+}
+
+// ── VIEWS ──
+function showView(id) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+// ── CLIENT LIST ──
+function renderList() {
+  const q = document.getElementById('searchInput').value.toLowerCase();
+  const clients = db.clients.filter(c =>
+    c.horse.toLowerCase().includes(q) || (c.owner || '').toLowerCase().includes(q)
+  );
+  const el = document.getElementById('clientCards');
+  if (!clients.length) {
+    el.innerHTML = `<div class="empty-state"><div class="icon">🐴</div><p>No clients yet.<br>Tap + to add your first horse.</p></div>`;
+    return;
+  }
+  el.innerHTML = clients.map(c => {
+    const lastBCS = c.bcs && c.bcs.length ? c.bcs[c.bcs.length-1].val : null;
+    const initials = c.horse[0].toUpperCase();
+    const thumbPhoto = c.photos && c.photos.find(p => p);
+    const avatarHTML = thumbPhoto
+      ? `<img src="${thumbPhoto}" alt="">`
+      : initials;
+    return `<div class="client-card" onclick="openClient('${c.id}')">
+      <div class="client-avatar">${avatarHTML}</div>
+      <div class="client-info">
+        <div class="client-horse">${c.horse}</div>
+        <div class="client-owner">${c.owner || ''}</div>
+        <div class="client-meta">${c.breed || ''} ${c.age ? '· ' + c.age + ' yrs' : ''}</div>
+      </div>
+      ${lastBCS ? `<div class="client-bcs">BCS<span>${lastBCS}</span></div>` : ''}
+    </div>`;
+  }).join('');
+
+  // Show/hide FAB based on view
+  document.getElementById('fab').style.display = 'flex';
+}
+
+// ── CLIENT DETAIL ──
+function openClient(id) {
+  currentClientId = id;
+  const c = db.clients.find(x => x.id === id);
+  if (!c) return;
+  showView('viewDetail');
+  document.getElementById('fab').style.display = 'none';
+
+  // Header
+  const concerns = (c.concerns || []).map(x => `<span class="chip">${x}</span>`).join('');
+  document.getElementById('detailHeader').innerHTML = `
+    <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+      <div>
+        <div class="detail-horse">${c.horse}</div>
+        <div class="detail-owner">${c.owner || ''}</div>
+      </div>
+      <button class="icon-btn" onclick="editClient('${id}')" style="background:rgba(255,255,255,0.15)">✏️</button>
+    </div>
+    ${concerns ? `<div class="detail-chips">${concerns}</div>` : ''}
+  `;
+
+  // Topbar
+  document.getElementById('topbarTitle').innerHTML = `<span onclick="backToList()" style="cursor:pointer; opacity:0.7; font-size:0.9rem;">← </span>${c.horse}`;
+
+  const tabs = ['Overview', 'BCS', 'Notes', 'Diet', 'Supplements', 'Medications', 'Labs', 'Photos'];
+  document.getElementById('detailTabs').innerHTML = tabs.map((t, i) =>
+    `<button class="tab-btn ${i===0?'active':''}" onclick="switchTab(${i})">${t}</button>`
+  ).join('');
+
+  renderAllTabs(c);
+  currentTab = 0;
+}
+
+function switchTab(i) {
+  currentTab = i;
+  document.querySelectorAll('.tab-btn').forEach((b, idx) => b.classList.toggle('active', idx === i));
+  document.querySelectorAll('.tab-content').forEach((t, idx) => t.classList.toggle('active', idx === i));
+}
+
+function renderAllTabs(c) {
+  const container = document.getElementById('detailTabContents');
+  container.innerHTML = `
+    ${renderOverviewTab(c)}
+    ${renderBCSTab(c)}
+    ${renderNotesTab(c)}
+    ${renderDietTab(c)}
+    ${renderSuppsTab(c)}
+    ${renderMedsTab(c)}
+    ${renderLabsTab(c)}
+    ${renderPhotosTab(c)}
+  `;
+  // Draw BCS chart after render
+  setTimeout(() => drawBCSChart(c), 50);
+}
+
+function renderOverviewTab(c) {
+  return `<div class="tab-content active">
+    <div class="section-card">
+      <div class="section-title">Horse Info</div>
+      <div class="info-row"><span class="info-key">Breed</span><span class="info-val">${c.breed||'—'}</span></div>
+      <div class="info-row"><span class="info-key">Age</span><span class="info-val">${c.age ? c.age + ' years' : '—'}</span></div>
+      <div class="info-row"><span class="info-key">Sex</span><span class="info-val">${c.sex||'—'}</span></div>
+      <div class="info-row"><span class="info-key">Weight</span><span class="info-val">${c.weight ? c.weight + ' lbs' : '—'}</span></div>
+      <div class="info-row"><span class="info-key">Discipline</span><span class="info-val">${c.discipline||'—'}</span></div>
+    </div>
+    ${c.concerns && c.concerns.length ? `<div class="section-card">
+      <div class="section-title">Health Concerns</div>
+      <div>${c.concerns.map(x=>`<span class="concern-tag">${x}</span>`).join('')}</div>
+    </div>` : ''}
+    ${c.history ? `<div class="section-card">
+      <div class="section-title">Health History</div>
+      <p style="font-size:0.88rem; line-height:1.6; color:var(--text)">${c.history}</p>
+    </div>` : ''}
+  </div>`;
+}
+
+function renderBCSTab(c) {
+  const entries = c.bcs || [];
+  return `<div class="tab-content">
+    <div class="section-card">
+      <div class="section-title">BCS Over Time
+        <button class="add-btn" onclick="openAddBCS()">+ Add</button>
+      </div>
+      <canvas class="bcs-graph" id="bcsCanvas"></canvas>
+      ${entries.slice().reverse().map(e => `
+        <div class="bcs-entry">
+          <span class="bcs-date">${e.date}</span>
+          <span class="bcs-val">${e.val}</span>
+        </div>`).join('') || '<p style="font-size:0.85rem; color:var(--text-muted)">No BCS entries yet.</p>'}
+    </div>
+  </div>`;
+}
+
+function drawBCSChart(c) {
+  const canvas = document.getElementById('bcsCanvas');
+  if (!canvas) return;
+  const entries = (c.bcs || []).slice(-10);
+  if (entries.length < 2) { canvas.style.display = 'none'; return; }
+  canvas.style.display = 'block';
+  const ctx = canvas.getContext('2d');
+  const W = canvas.offsetWidth; const H = 120;
+  canvas.width = W; canvas.height = H;
+  ctx.clearRect(0,0,W,H);
+  const vals = entries.map(e => parseFloat(e.val));
+  const min = Math.max(0, Math.min(...vals) - 1);
+  const max = Math.min(9, Math.max(...vals) + 1);
+  const px = (i) => (i / (entries.length-1)) * (W - 40) + 20;
+  const py = (v) => H - 20 - ((v - min)/(max - min)) * (H - 35);
+  // Grid
+  ctx.strokeStyle = '#e8e4dc'; ctx.lineWidth = 1;
+  [5,6,7,8].forEach(v => { if(v>=min&&v<=max) { ctx.beginPath(); ctx.moveTo(20,py(v)); ctx.lineTo(W-20,py(v)); ctx.stroke(); }});
+  // Line
+  ctx.strokeStyle = '#2D4A35'; ctx.lineWidth = 2.5; ctx.lineJoin = 'round';
+  ctx.beginPath();
+  entries.forEach((e,i) => { i===0 ? ctx.moveTo(px(i),py(parseFloat(e.val))) : ctx.lineTo(px(i),py(parseFloat(e.val))); });
+  ctx.stroke();
+  // Dots
+  entries.forEach((e,i) => {
+    ctx.beginPath(); ctx.arc(px(i),py(parseFloat(e.val)),4,0,Math.PI*2);
+    ctx.fillStyle = '#2D4A35'; ctx.fill();
+    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(px(i),py(parseFloat(e.val)),2,0,Math.PI*2); ctx.fill();
+  });
+  // Labels
+  ctx.fillStyle = '#6B6B6B'; ctx.font = '10px DM Sans'; ctx.textAlign = 'center';
+  entries.forEach((e,i) => { ctx.fillText(e.val, px(i), py(parseFloat(e.val))-8); });
+}
+
+function renderNotesTab(c) {
+  const notes = c.notes || [];
+  const quick = c.quickNote || '';
+  return `<div class="tab-content">
+    <div class="section-card" style="border: 2px solid var(--sage-light);">
+      <div class="section-title" style="color:var(--sage);">
+        ✏️ Quick Notes
+        <span style="font-size:0.7rem; font-weight:400; color:var(--text-muted);">auto-saves</span>
+      </div>
+      <textarea
+        id="quickNoteArea"
+        style="width:100%; min-height:120px; border:none; background:transparent; font-family:'DM Sans',sans-serif; font-size:0.9rem; line-height:1.7; color:var(--text); resize:none; outline:none;"
+        placeholder="Start typing — notes save automatically as you type..."
+        oninput="saveQuickNote(this.value)"
+      >${quick}</textarea>
+      <div style="display:flex; justify-content:flex-end; margin-top:0.5rem;">
+        <button class="add-btn" onclick="promoteQuickNote()" style="background:var(--hunter); color:var(--cream);">Save as Visit Note</button>
+      </div>
+    </div>
+    <div class="section-card">
+      <div class="section-title">Visit Notes
+        <button class="add-btn" onclick="openAddNote()">+ Add</button>
+      </div>
+      ${notes.slice().reverse().map(n => `
+        <div class="visit-note">
+          <div class="visit-date">${n.date}</div>
+          <div class="visit-text">${n.text}</div>
+        </div>`).join('') || '<p style="font-size:0.85rem; color:var(--text-muted)">No visit notes yet.</p>'}
+    </div>
+  </div>`;
+}
+
+function saveQuickNote(val) {
+  const c = db.clients.find(x => x.id === currentClientId);
+  if (!c) return;
+  c.quickNote = val;
+  save();
+}
+
+function promoteQuickNote() {
+  const c = db.clients.find(x => x.id === currentClientId);
+  const text = (c.quickNote || '').trim();
+  if (!text) return;
+  if (!confirm('Save quick notes as a dated visit note?')) return;
+  if (!c.notes) c.notes = [];
+  const date = new Date().toLocaleDateString('en-US', {year:'numeric', month:'long', day:'numeric'});
+  c.notes.push({date, text});
+  c.quickNote = '';
+  save(); refreshDetail(); switchTab(2);
+}
+
+function renderDietTab(c) {
+  const items = c.diet || [];
+  return `<div class="tab-content">
+    <div class="section-card">
+      <div class="section-title">Diet
+        <button class="add-btn" onclick="openAddItem('diet','Feed/Forage')">+ Add</button>
+      </div>
+      ${items.map(it => `<div class="item-row">
+        <div class="item-name">${it.name}</div>
+        <div class="item-detail">${[it.amount, it.frequency].filter(Boolean).join(' · ')}${it.notes ? ' — ' + it.notes : ''}</div>
+      </div>`).join('') || '<p style="font-size:0.85rem; color:var(--text-muted)">No diet entries yet.</p>'}
+    </div>
+  </div>`;
+}
+
+function renderSuppsTab(c) {
+  const items = c.supplements || [];
+  return `<div class="tab-content">
+    <div class="section-card">
+      <div class="section-title">Supplements
+        <button class="add-btn" onclick="openAddItem('supplements','Supplement')">+ Add</button>
+      </div>
+      ${items.map(it => `<div class="item-row">
+        <div class="item-name">${it.name}</div>
+        <div class="item-detail">${[it.amount, it.frequency].filter(Boolean).join(' · ')}${it.notes ? ' — ' + it.notes : ''}</div>
+      </div>`).join('') || '<p style="font-size:0.85rem; color:var(--text-muted)">No supplements yet.</p>'}
+    </div>
+  </div>`;
+}
+
+function renderMedsTab(c) {
+  const items = c.medications || [];
+  return `<div class="tab-content">
+    <div class="section-card">
+      <div class="section-title">Medications
+        <button class="add-btn" onclick="openAddItem('medications','Medication')">+ Add</button>
+      </div>
+      ${items.map(it => `<div class="item-row">
+        <div class="item-name">${it.name}</div>
+        <div class="item-detail">${[it.amount, it.frequency].filter(Boolean).join(' · ')}${it.notes ? ' — ' + it.notes : ''}</div>
+      </div>`).join('') || '<p style="font-size:0.85rem; color:var(--text-muted)">No medications yet.</p>'}
+    </div>
+  </div>`;
+}
+
+function renderLabsTab(c) {
+  const labs = c.labs || {};
+  const labFields = [
+    {key:'insulin', label:'Insulin'},
+    {key:'vitE', label:'Vitamin E'},
+    {key:'glucose', label:'Glucose'},
+    {key:'acth', label:'ACTH'},
+    {key:'triglycerides', label:'Triglycerides'},
+    {key:'custom1', label: labs.custom1Label || 'Custom 1'},
+  ];
+  return `<div class="tab-content">
+    <div class="section-card">
+      <div class="section-title">Lab Values
+        <button class="add-btn" onclick="openEditLabs()">Edit</button>
+      </div>
+      <div class="lab-grid">
+        ${labFields.map(f => `<div class="lab-item">
+          <div class="lab-label">${f.label}</div>
+          <div class="lab-value">${labs[f.key] || '—'}</div>
+          <div class="lab-date">${labs[f.key+'_date'] || ''}</div>
+        </div>`).join('')}
+      </div>
+    </div>
+  </div>`;
+}
+
+function renderPhotosTab(c) {
+  const photos = c.photos || [null, null, null, null];
+  while (photos.length < 4) photos.push(null);
+  return `<div class="tab-content">
+    <div class="section-card">
+      <div class="section-title">Photos <span style="font-size:0.75rem; font-weight:400; color:var(--text-muted)">(up to 4)</span></div>
+      <div class="photo-grid">
+        ${photos.slice(0,4).map((p,i) => `
+          <div class="photo-slot" onclick="photoClick(${i})">
+            ${p ? `<img src="${p}" alt="Photo ${i+1}">
+              <button class="photo-delete" onclick="deletePhoto(event,${i})">✕</button>` :
+              `<div class="placeholder">📷</div><div class="photo-label">Add photo</div>`}
+          </div>`).join('')}
+      </div>
+      <input type="file" id="photoInput" accept="image/*" style="display:none" onchange="handlePhoto(event)">
+    </div>
+  </div>`;
+}
+
+let pendingPhotoIndex = null;
+function photoClick(i) {
+  const c = db.clients.find(x => x.id === currentClientId);
+  if (c.photos && c.photos[i]) return;
+  pendingPhotoIndex = i;
+  document.getElementById('photoInput').click();
+}
+
+function handlePhoto(e) {
+  const file = e.target.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    const c = db.clients.find(x => x.id === currentClientId);
+    if (!c.photos) c.photos = [null,null,null,null];
+    c.photos[pendingPhotoIndex] = ev.target.result;
+    save(); refreshDetail();
+  };
+  reader.readAsDataURL(file);
+  e.target.value = '';
+}
+
+function deletePhoto(e, i) {
+  e.stopPropagation();
+  const c = db.clients.find(x => x.id === currentClientId);
+  if (c.photos) c.photos[i] = null;
+  save(); refreshDetail();
+}
+
+function refreshDetail() {
+  const c = db.clients.find(x => x.id === currentClientId);
+  renderAllTabs(c);
+  switchTab(currentTab);
+}
+
+function backToList() {
+  showView('viewList');
+  document.getElementById('topbarTitle').textContent = 'Centerline';
+  document.getElementById('fab').style.display = 'flex';
+  renderList();
+}
+
+// ── MODALS ──
+function openModal(html) {
+  document.getElementById('modalContent').innerHTML = html;
+  document.getElementById('modalOverlay').classList.add('open');
+}
+function closeModal(e) {
+  if (e && e.target !== document.getElementById('modalOverlay')) return;
+  document.getElementById('modalOverlay').classList.remove('open');
+}
+function closeModalDirect() {
+  document.getElementById('modalOverlay').classList.remove('open');
+}
+
+function openNewClientModal() {
+  openModal(`
+    <div class="modal-title">New Client</div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Horse Name *</label><input class="form-input" id="f_horse" placeholder="e.g. Luna"></div>
+      <div class="form-group"><label class="form-label">Owner Name</label><input class="form-input" id="f_owner" placeholder="e.g. Lisa Frey"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Breed</label><input class="form-input" id="f_breed" placeholder="e.g. Andalusian"></div>
+      <div class="form-group"><label class="form-label">Age (years)</label><input class="form-input" type="number" id="f_age" placeholder="8"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Sex</label>
+        <select class="form-select" id="f_sex">
+          <option value="">Select</option>
+          <option>Mare</option><option>Gelding</option><option>Stallion</option>
+        </select>
+      </div>
+      <div class="form-group"><label class="form-label">Weight (lbs)</label><input class="form-input" type="number" id="f_weight" placeholder="1100"></div>
+    </div>
+    <div class="form-group"><label class="form-label">Discipline</label><input class="form-input" id="f_discipline" placeholder="e.g. Dressage, Trail, Hunter"></div>
+    <div class="form-group"><label class="form-label">Health Concerns (comma separated)</label><input class="form-input" id="f_concerns" placeholder="e.g. IR, Cushings, EMS"></div>
+    <div class="form-group"><label class="form-label">Health History</label><textarea class="form-textarea" id="f_history" placeholder="Previous issues, surgeries, diagnoses..."></textarea></div>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeModalDirect()">Cancel</button>
+      <button class="btn-primary" onclick="saveNewClient()">Add Client</button>
+    </div>
+  `);
+}
+
+function saveNewClient() {
+  const horse = document.getElementById('f_horse').value.trim();
+  if (!horse) { alert('Horse name is required'); return; }
+  const c = {
+    id: Date.now().toString(),
+    horse, owner: document.getElementById('f_owner').value.trim(),
+    breed: document.getElementById('f_breed').value.trim(),
+    age: document.getElementById('f_age').value,
+    sex: document.getElementById('f_sex').value,
+    weight: document.getElementById('f_weight').value,
+    discipline: document.getElementById('f_discipline').value.trim(),
+    concerns: document.getElementById('f_concerns').value.split(',').map(s=>s.trim()).filter(Boolean),
+    history: document.getElementById('f_history').value.trim(),
+    bcs:[], notes:[], diet:[], supplements:[], medications:[], labs:{}, photos:[null,null,null,null]
+  };
+  db.clients.push(c); save(); closeModalDirect(); renderList();
+}
+
+function editClient(id) {
+  const c = db.clients.find(x => x.id === id);
+  openModal(`
+    <div class="modal-title">Edit ${c.horse}</div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Horse Name</label><input class="form-input" id="f_horse" value="${c.horse}"></div>
+      <div class="form-group"><label class="form-label">Owner Name</label><input class="form-input" id="f_owner" value="${c.owner||''}"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Breed</label><input class="form-input" id="f_breed" value="${c.breed||''}"></div>
+      <div class="form-group"><label class="form-label">Age</label><input class="form-input" type="number" id="f_age" value="${c.age||''}"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Sex</label>
+        <select class="form-select" id="f_sex">
+          <option value="">Select</option>
+          <option ${c.sex==='Mare'?'selected':''}>Mare</option>
+          <option ${c.sex==='Gelding'?'selected':''}>Gelding</option>
+          <option ${c.sex==='Stallion'?'selected':''}>Stallion</option>
+        </select>
+      </div>
+      <div class="form-group"><label class="form-label">Weight (lbs)</label><input class="form-input" type="number" id="f_weight" value="${c.weight||''}"></div>
+    </div>
+    <div class="form-group"><label class="form-label">Discipline</label><input class="form-input" id="f_discipline" value="${c.discipline||''}"></div>
+    <div class="form-group"><label class="form-label">Health Concerns (comma separated)</label><input class="form-input" id="f_concerns" value="${(c.concerns||[]).join(', ')}"></div>
+    <div class="form-group"><label class="form-label">Health History</label><textarea class="form-textarea" id="f_history">${c.history||''}</textarea></div>
+    <div class="modal-actions">
+      <button class="btn-danger" onclick="deleteClient('${id}')">Delete</button>
+      <button class="btn-secondary" onclick="closeModalDirect()">Cancel</button>
+      <button class="btn-primary" onclick="saveEditClient('${id}')">Save</button>
+    </div>
+  `);
+}
+
+function saveEditClient(id) {
+  const c = db.clients.find(x => x.id === id);
+  c.horse = document.getElementById('f_horse').value.trim();
+  c.owner = document.getElementById('f_owner').value.trim();
+  c.breed = document.getElementById('f_breed').value.trim();
+  c.age = document.getElementById('f_age').value;
+  c.sex = document.getElementById('f_sex').value;
+  c.weight = document.getElementById('f_weight').value;
+  c.discipline = document.getElementById('f_discipline').value.trim();
+  c.concerns = document.getElementById('f_concerns').value.split(',').map(s=>s.trim()).filter(Boolean);
+  c.history = document.getElementById('f_history').value.trim();
+  save(); closeModalDirect(); openClient(id);
+}
+
+function deleteClient(id) {
+  if (!confirm('Delete this client? This cannot be undone.')) return;
+  db.clients = db.clients.filter(x => x.id !== id);
+  save(); closeModalDirect(); backToList();
+}
+
+function openAddBCS() {
+  const today = new Date().toISOString().split('T')[0];
+  openModal(`
+    <div class="modal-title">Add BCS Entry</div>
+    <div class="form-group"><label class="form-label">Date</label><input class="form-input" type="date" id="f_date" value="${today}"></div>
+    <div class="form-group"><label class="form-label">BCS Score (1–9)</label>
+      <input class="form-input" type="number" id="f_bcs" min="1" max="9" step="0.5" placeholder="e.g. 7.0">
+    </div>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeModalDirect()">Cancel</button>
+      <button class="btn-primary" onclick="saveBCS()">Save</button>
+    </div>
+  `);
+}
+
+function saveBCS() {
+  const val = document.getElementById('f_bcs').value;
+  const date = document.getElementById('f_date').value;
+  if (!val || !date) return;
+  const c = db.clients.find(x => x.id === currentClientId);
+  if (!c.bcs) c.bcs = [];
+  c.bcs.push({date, val: parseFloat(val)});
+  c.bcs.sort((a,b) => a.date.localeCompare(b.date));
+  save(); closeModalDirect(); refreshDetail(); switchTab(1);
+}
+
+function openAddNote() {
+  const today = new Date().toLocaleDateString('en-US', {year:'numeric', month:'long', day:'numeric'});
+  openModal(`
+    <div class="modal-title">Add Visit Note</div>
+    <div class="form-group"><label class="form-label">Date</label><input class="form-input" id="f_date" value="${today}"></div>
+    <div class="form-group"><label class="form-label">Notes</label><textarea class="form-textarea" id="f_note" style="min-height:140px" placeholder="Observations, recommendations, changes made..."></textarea></div>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeModalDirect()">Cancel</button>
+      <button class="btn-primary" onclick="saveNote()">Save</button>
+    </div>
+  `);
+}
+
+function saveNote() {
+  const text = document.getElementById('f_note').value.trim();
+  const date = document.getElementById('f_date').value;
+  if (!text) return;
+  const c = db.clients.find(x => x.id === currentClientId);
+  if (!c.notes) c.notes = [];
+  c.notes.push({date, text});
+  save(); closeModalDirect(); refreshDetail(); switchTab(2);
+}
+
+function openAddItem(field, label) {
+  const tabMap = {diet:3, supplements:4, medications:5};
+  openModal(`
+    <div class="modal-title">Add ${label}</div>
+    <div class="form-group"><label class="form-label">Name *</label><input class="form-input" id="f_name" placeholder="${label} name"></div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Amount</label><input class="form-input" id="f_amount" placeholder="e.g. 2 lbs, 30ml"></div>
+      <div class="form-group"><label class="form-label">Frequency</label><input class="form-input" id="f_freq" placeholder="e.g. Daily, 2x/day"></div>
+    </div>
+    <div class="form-group"><label class="form-label">Notes</label><input class="form-input" id="f_notes" placeholder="Additional notes"></div>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeModalDirect()">Cancel</button>
+      <button class="btn-primary" onclick="saveItem('${field}', ${tabMap[field]})">Save</button>
+    </div>
+  `);
+}
+
+function saveItem(field, tabIdx) {
+  const name = document.getElementById('f_name').value.trim();
+  if (!name) return;
+  const c = db.clients.find(x => x.id === currentClientId);
+  if (!c[field]) c[field] = [];
+  c[field].push({
+    name, amount: document.getElementById('f_amount').value.trim(),
+    frequency: document.getElementById('f_freq').value.trim(),
+    notes: document.getElementById('f_notes').value.trim()
+  });
+  save(); closeModalDirect(); refreshDetail(); switchTab(tabIdx);
+}
+
+function openEditLabs() {
+  const c = db.clients.find(x => x.id === currentClientId);
+  const labs = c.labs || {};
+  const today = new Date().toISOString().split('T')[0];
+  openModal(`
+    <div class="modal-title">Lab Values</div>
+    ${[
+      {key:'insulin', label:'Insulin', unit:'µIU/mL'},
+      {key:'vitE', label:'Vitamin E', unit:'mg/L'},
+      {key:'glucose', label:'Glucose', unit:'mg/dL'},
+      {key:'acth', label:'ACTH', unit:'pg/mL'},
+      {key:'triglycerides', label:'Triglycerides', unit:'mg/dL'},
+    ].map(f => `
+      <div class="form-group">
+        <label class="form-label">${f.label} (${f.unit})</label>
+        <div class="form-row">
+          <input class="form-input" id="f_${f.key}" value="${labs[f.key]||''}" placeholder="Value">
+          <input class="form-input" type="date" id="f_${f.key}_date" value="${labs[f.key+'_date']||today}">
+        </div>
+      </div>`).join('')}
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeModalDirect()">Cancel</button>
+      <button class="btn-primary" onclick="saveLabs()">Save</button>
+    </div>
+  `);
+}
+
+function saveLabs() {
+  const c = db.clients.find(x => x.id === currentClientId);
+  if (!c.labs) c.labs = {};
+  ['insulin','vitE','glucose','acth','triglycerides'].forEach(k => {
+    c.labs[k] = document.getElementById('f_'+k).value.trim();
+    c.labs[k+'_date'] = document.getElementById('f_'+k+'_date').value;
+  });
+  save(); closeModalDirect(); refreshDetail(); switchTab(6);
+}
+
+// ── EXPORT / IMPORT ──
+function openDataModal() {
+  openModal(`
+    <div class="modal-title">Data Management</div>
+    <div class="section-card" style="margin-bottom:1rem;">
+      <div class="section-title">Export Data</div>
+      <p style="font-size:0.85rem; color:var(--text-muted); line-height:1.6; margin-bottom:0.75rem;">
+        Download all your client data as a backup file. Transfer this to any device to restore your data.
+      </p>
+      <button class="btn-primary" onclick="exportData()" style="width:100%;">⬇ Export Data</button>
+    </div>
+    <div class="section-card">
+      <div class="section-title">Import Data</div>
+      <p style="font-size:0.85rem; color:var(--text-muted); line-height:1.6; margin-bottom:0.75rem;">
+        Load a previously exported backup file. <strong>This will replace all current data.</strong>
+      </p>
+      <input type="file" id="importInput" accept=".json" style="display:none" onchange="importData(event)">
+      <button class="btn-secondary" onclick="document.getElementById('importInput').click()" style="width:100%; border:1px solid var(--border);">⬆ Import Data</button>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeModalDirect()" style="flex:1;">Close</button>
+    </div>
+  `);
+}
+
+function exportData() {
+  const exportObj = {
+    clients: db.clients,
+    exportedAt: new Date().toISOString(),
+    version: '1.0'
+  };
+  const blob = new Blob([JSON.stringify(exportObj, null, 2)], {type: 'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `centerline-backup-${new Date().toISOString().split('T')[0]}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function importData(e) {
+  const file = e.target.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    try {
+      const parsed = JSON.parse(ev.target.result);
+      if (!parsed.clients || !Array.isArray(parsed.clients)) {
+        alert('Invalid backup file. Please use a file exported from this app.');
+        return;
+      }
+      if (!confirm(`This will replace all current data with ${parsed.clients.length} client(s) from the backup. Continue?`)) return;
+      db.clients = parsed.clients;
+      save();
+      closeModalDirect();
+      renderList();
+      alert('Data imported successfully!');
+    } catch(err) {
+      alert('Could not read file. Make sure it is a valid Centerline backup.');
+    }
+  };
+  reader.readAsText(file);
+  e.target.value = '';
+}
+
+// ── INIT ──
+initLock();
+</script>
+</body>
+</html>
